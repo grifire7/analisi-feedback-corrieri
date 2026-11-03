@@ -281,14 +281,31 @@ if uploaded_file is not None:
             tot_neut = df_report['Neutrali (7-8)'].sum()
             tot_detr = df_report['Detrattori (0-6)'].sum()
 
-            # --- RIEPILOGO METRICHE ---
+            # --- RIEPILOGO METRICHE IN HTML/CSS (Zero errori script) ---
             st.markdown("---")
             st.markdown("### 📊 Scheda Riepilogativa")
-            k1, k2, k3, k4 = st.columns(4)
-            k1.metric("Totale Voti", len(df_valido))
-            k2.metric("🏆 Più Votato", f"Corr. {', '.join(piu_votati)}", f"{max_voti} voti")
-            k3.metric("Promotori (9-10)", f"{tot_prom} 🟢")
-            k4.metric("Detrattori (0-6)", f"{tot_detr} 🔴")
+            
+            card_html = f"""
+            <div style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 150px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 18px;">
+                    <div style="font-size: 13px; color: #64748b; font-weight: 600; text-transform: uppercase;">Totale Voti</div>
+                    <div style="font-size: 26px; font-weight: bold; color: #0f172a; margin-top: 4px;">{len(df_valido)}</div>
+                </div>
+                <div style="flex: 1; min-width: 150px; background: #fefce8; border: 1px solid #fef08a; border-radius: 8px; padding: 14px 18px;">
+                    <div style="font-size: 13px; color: #854d0e; font-weight: 600; text-transform: uppercase;">🏆 Più Votato</div>
+                    <div style="font-size: 22px; font-weight: bold; color: #713f12; margin-top: 4px;">Corr. {', '.join(piu_votati)} <span style="font-size: 14px; color: #a16207;">({max_voti} voti)</span></div>
+                </div>
+                <div style="flex: 1; min-width: 150px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 14px 18px;">
+                    <div style="font-size: 13px; color: #166534; font-weight: 600; text-transform: uppercase;">Promotori (9-10)</div>
+                    <div style="font-size: 26px; font-weight: bold; color: #15803d; margin-top: 4px;">{tot_prom} 🟢</div>
+                </div>
+                <div style="flex: 1; min-width: 150px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 14px 18px;">
+                    <div style="font-size: 13px; color: #991b1b; font-weight: 600; text-transform: uppercase;">Detrattori (0-6)</div>
+                    <div style="font-size: 26px; font-weight: bold; color: #b91c1c; margin-top: 4px;">{tot_detr} 🔴</div>
+                </div>
+            </div>
+            """
+            st.markdown(card_html, unsafe_allow_html=True)
 
             # --- GRAFICO CLASSIFICA ---
             st.markdown("---")
@@ -364,10 +381,10 @@ if uploaded_file is not None:
                     use_container_width=True
                 )
 
-            # --- TABELLA DETTAGLIATA GENERALE ---
+            # --- TABELLA STATICA PULITA (Zero errori script) ---
             st.markdown("---")
             st.markdown("#### 📋 Tabella Riepilogo Corrieri")
-            st.dataframe(df_report, use_container_width=True, hide_index=True)
+            st.table(df_report)
 
     except Exception as e:
         st.error(f"Errore: {e}")
