@@ -1,5 +1,4 @@
 import streamlit as st
-import streamlit.components.v1 as components
 import pandas as pd
 import urllib.parse
 import matplotlib.pyplot as plt
@@ -18,64 +17,51 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- 1. PULSANTE JAVASCRIPT FISSO CHE FORZA LA RIAPERTURA DELLA SIDEBAR ---
-components.html("""
-<script>
-function attachSidebarOpener() {
-    const parentDoc = window.parent.document;
-    if (parentDoc.getElementById("custom-sidebar-opener")) return;
-
-    const btn = parentDoc.createElement("button");
-    btn.id = "custom-sidebar-opener";
-    btn.innerHTML = "&#9776; Menu";
-    btn.title = "Apri / Chiudi Menu";
-    btn.style.cssText = `
-        position: fixed !important;
-        top: 12px !important;
-        left: 12px !important;
-        z-index: 999999999 !important;
-        background-color: #FACC15 !important;
-        color: #0F172A !important;
-        border: 2px solid #CA8A04 !important;
-        border-radius: 8px !important;
-        padding: 6px 14px !important;
-        font-size: 14px !important;
-        font-weight: 800 !important;
-        cursor: pointer !important;
-        box-shadow: 0 4px 14px rgba(0,0,0,0.5) !important;
-        display: flex !important;
-        align-items: center !important;
-        gap: 6px !important;
-    `;
-
-    btn.onclick = function() {
-        // Cerca i selettori nativi di apertura sidebar in Streamlit e clicca
-        const collapseBtn = parentDoc.querySelector('[data-testid="stSidebarCollapseButton"] button') ||
-                            parentDoc.querySelector('[data-testid="stSidebarCollapsedControl"] button') ||
-                            parentDoc.querySelector('[data-testid="stSidebarCollapsedControl"]') ||
-                            parentDoc.querySelector('header button[kind="header"]');
-        if (collapseBtn) {
-            collapseBtn.click();
-        } else {
-            // Se la sidebar è nascosta via stile, rimuove la classe di chiusura
-            const sidebar = parentDoc.querySelector('[data-testid="stSidebar"]');
-            if (sidebar) {
-                sidebar.setAttribute("aria-expanded", "true");
-            }
-        }
-    };
-
-    parentDoc.body.appendChild(btn);
-}
-setTimeout(attachSidebarOpener, 300);
-setInterval(attachSidebarOpener, 1500);
-</script>
-""", height=0, width=0)
-
-# --- 2. CSS PERSONALIZZATO AD ALTA VISIBILITÀ ---
+# --- CSS DEFINITIVO PER STREAMLIT CLOUD (COMPATIBILE MOBILE E DESKTOP) ---
 st.markdown("""
     <style>
-        /* Sfondo principale Total Black */
+        /* ========================================================
+           1. RIPRISTINO E VISIBILITÀ DEL PULSANTE DI APERTURA STREAMLIT
+           ======================================================== */
+        /* Mantiene l'header sempre attivo e trasparente */
+        header[data-testid="stHeader"] {
+            background-color: transparent !important;
+            display: block !important;
+            visibility: visible !important;
+            z-index: 1000 !important;
+        }
+
+        /* Pulsante nativo per riaprire la barra quando è chiusa */
+        [data-testid="stSidebarCollapsedControl"] {
+            display: flex !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            background-color: #FACC15 !important; /* Giallo brillante */
+            border: 2px solid #000000 !important;  /* Bordo netto */
+            border-radius: 8px !important;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4) !important;
+            position: fixed !important;
+            top: 10px !important;
+            left: 10px !important;
+            z-index: 999999 !important;
+            width: 42px !important;
+            height: 42px !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+
+        /* Icona freccia/chevron sempre nera e nitida */
+        [data-testid="stSidebarCollapsedControl"] svg,
+        [data-testid="stSidebarCollapseButton"] svg {
+            fill: #000000 !important;
+            stroke: #000000 !important;
+            width: 24px !important;
+            height: 24px !important;
+        }
+
+        /* ========================================================
+           2. SFONDO NERO AREA PRINCIPALE E TESTI CHIARI
+           ======================================================== */
         .stApp, [data-testid="stAppViewContainer"], .main {
             background-color: #0A0A0A !important;
             color: #F8FAFC !important;
@@ -85,14 +71,13 @@ st.markdown("""
             color: #F8FAFC !important;
         }
 
-        /* Menu a tendina nella pagina nera */
         .stApp [data-baseweb="select"] > div {
             background-color: #1E293B !important;
             color: #FFFFFF !important;
             border: 1px solid #334155 !important;
         }
 
-        /* Pulsante uploader "Allega File Excel" */
+        /* Uploader personalizzato */
         .stApp [data-testid="stFileUploader"] section {
             background-color: #111827 !important;
             border: 2px dashed #CA8A04 !important;
@@ -140,7 +125,9 @@ st.markdown("""
             border-bottom: 1px solid #1E293B !important;
         }
 
-        /* Barra laterale sinistra Gialla */
+        /* ========================================================
+           3. BARRA LATERALE GIALLA CON FINESTRELLA BLU
+           ======================================================== */
         [data-testid="stSidebar"], 
         [data-testid="stSidebar"] > div:first-child {
             background-color: #FEF08A !important;
