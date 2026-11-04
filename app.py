@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 import urllib.parse
 import matplotlib.pyplot as plt
@@ -13,16 +14,69 @@ from reportlab.lib import colors as r_colors
 st.set_page_config(
     page_title="Analisi Feedback NPS - SDA",
     page_icon="📦",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# --- CSS PERSONALIZZATO: SCHERMATA PRINCIPALE NERA + SIDEBAR GIALLA ---
+# --- 1. PULSANTE JAVASCRIPT FISSO CHE FORZA LA RIAPERTURA DELLA SIDEBAR ---
+components.html("""
+<script>
+function attachSidebarOpener() {
+    const parentDoc = window.parent.document;
+    if (parentDoc.getElementById("custom-sidebar-opener")) return;
+
+    const btn = parentDoc.createElement("button");
+    btn.id = "custom-sidebar-opener";
+    btn.innerHTML = "&#9776; Menu";
+    btn.title = "Apri / Chiudi Menu";
+    btn.style.cssText = `
+        position: fixed !important;
+        top: 12px !important;
+        left: 12px !important;
+        z-index: 999999999 !important;
+        background-color: #FACC15 !important;
+        color: #0F172A !important;
+        border: 2px solid #CA8A04 !important;
+        border-radius: 8px !important;
+        padding: 6px 14px !important;
+        font-size: 14px !important;
+        font-weight: 800 !important;
+        cursor: pointer !important;
+        box-shadow: 0 4px 14px rgba(0,0,0,0.5) !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 6px !important;
+    `;
+
+    btn.onclick = function() {
+        // Cerca i selettori nativi di apertura sidebar in Streamlit e clicca
+        const collapseBtn = parentDoc.querySelector('[data-testid="stSidebarCollapseButton"] button') ||
+                            parentDoc.querySelector('[data-testid="stSidebarCollapsedControl"] button') ||
+                            parentDoc.querySelector('[data-testid="stSidebarCollapsedControl"]') ||
+                            parentDoc.querySelector('header button[kind="header"]');
+        if (collapseBtn) {
+            collapseBtn.click();
+        } else {
+            // Se la sidebar è nascosta via stile, rimuove la classe di chiusura
+            const sidebar = parentDoc.querySelector('[data-testid="stSidebar"]');
+            if (sidebar) {
+                sidebar.setAttribute("aria-expanded", "true");
+            }
+        }
+    };
+
+    parentDoc.body.appendChild(btn);
+}
+setTimeout(attachSidebarOpener, 300);
+setInterval(attachSidebarOpener, 1500);
+</script>
+""", height=0, width=0)
+
+# --- 2. CSS PERSONALIZZATO AD ALTA VISIBILITÀ ---
 st.markdown("""
-   <style>
-        /* ========================================================
-           1. SFONDO PRINCIPALE TOTAL BLACK E TESTI CHIARI
-           ======================================================== */
-        .stApp, [data-testid="stAppViewContainer"] {
+    <style>
+        /* Sfondo principale Total Black */
+        .stApp, [data-testid="stAppViewContainer"], .main {
             background-color: #0A0A0A !important;
             color: #F8FAFC !important;
         }
@@ -38,10 +92,7 @@ st.markdown("""
             border: 1px solid #334155 !important;
         }
 
-        /* ========================================================
-           2. PULSANTE UPLOADER: "ALLEGA FILE EXCEL" AD ALTA VISIBILITÀ
-           ======================================================== */
-        /* Riquadro esterno dell'uploader */
+        /* Pulsante uploader "Allega File Excel" */
         .stApp [data-testid="stFileUploader"] section {
             background-color: #111827 !important;
             border: 2px dashed #CA8A04 !important;
@@ -49,7 +100,6 @@ st.markdown("""
             padding: 20px !important;
         }
 
-        /* Testo informativo (trascina file / limite formato) */
         .stApp [data-testid="stFileUploader"] section div,
         .stApp [data-testid="stFileUploader"] section span,
         .stApp [data-testid="stFileUploader"] section small {
@@ -57,35 +107,26 @@ st.markdown("""
             font-size: 13.5px !important;
         }
 
-        /* Pulsante "Browse files" trasformato in "Allega File Excel" */
         .stApp [data-testid="stFileUploader"] button {
-            background-color: #FACC15 !important; /* Giallo brillante */
+            background-color: #FACC15 !important;
             border: 2px solid #EAB308 !important;
             border-radius: 8px !important;
             padding: 8px 18px !important;
             box-shadow: 0 3px 8px rgba(0,0,0,0.4) !important;
-            font-size: 0px !important; /* Nasconde il testo originale 'Browse files' */
+            font-size: 0px !important;
             visibility: visible !important;
         }
 
-        /* Nuovo testo in italiano ad alto contrasto */
         .stApp [data-testid="stFileUploader"] button::after {
             content: "📁 Allega File Excel" !important;
             font-size: 14.5px !important;
             font-weight: 800 !important;
-            color: #0F172A !important; /* Testo nero scuro ben contrastato */
+            color: #0F172A !important;
             display: inline-block !important;
             visibility: visible !important;
         }
 
-        .stApp [data-testid="stFileUploader"] button:hover {
-            background-color: #FDE047 !important;
-            border-color: #CA8A04 !important;
-        }
-
-        /* ========================================================
-           3. TABELLE SU SFONDO SCURO
-           ======================================================== */
+        /* Tabelle su sfondo scuro */
         .stApp table {
             background-color: #0F172A !important;
             color: #F8FAFC !important;
@@ -99,9 +140,7 @@ st.markdown("""
             border-bottom: 1px solid #1E293B !important;
         }
 
-        /* ========================================================
-           4. SIDEBAR SINISTRA GIALLA CON FINESTRELLA BLU
-           ======================================================== */
+        /* Barra laterale sinistra Gialla */
         [data-testid="stSidebar"], 
         [data-testid="stSidebar"] > div:first-child {
             background-color: #FEF08A !important;
@@ -122,6 +161,7 @@ st.markdown("""
             border-color: #EAB308 !important;
         }
 
+        /* Box selettore modalità (Blu Notte) */
         [data-testid="stSidebar"] [data-testid="stRadio"] > div {
             background-color: #0F172A !important;
             padding: 10px !important;
@@ -137,7 +177,6 @@ st.markdown("""
             border-radius: 8px !important;
             border: 1px solid #334155 !important;
             margin-bottom: 4px !important;
-            transition: all 0.2s ease !important;
         }
 
         [data-testid="stSidebar"] [data-testid="stRadio"] label p,
@@ -210,7 +249,6 @@ def genera_grafico_orizzontale(df_report, piu_votati):
     fig_height = max(4.5, num_elementi * 0.38)
     fig, ax = plt.subplots(figsize=(9, fig_height), dpi=100)
     
-    # Sfondo del grafico armonizzato con la schermata scura
     fig.patch.set_facecolor('#111827')
     ax.set_facecolor('#111827')
     
@@ -391,7 +429,6 @@ st.sidebar.markdown("""
 # 1. MODULO NPS CONSEGNE
 # ==========================================
 if tipo_app == "📦 NPS Consegne":
-    # Logo e Intestazione
     c_title1, c_title2 = st.columns([3, 1])
     with c_title1:
         st.title("📦 Analisi Feedback Consegne")
@@ -436,7 +473,6 @@ if tipo_app == "📦 NPS Consegne":
                 if filiale_sel_c != "TUTTE LE FILIALI":
                     df = df[df[col_ufficio_c].astype(str).str.strip() == filiale_sel_c].copy()
 
-            # PRIORITÀ A ZONA_PTL
             auto_corriere = next((c for c in df.columns if "ZONA_PTL" in c.upper() or "ZONA PTL" in c.upper()), None)
             if not auto_corriere:
                 auto_corriere = next((c for c in df.columns if any(k in c.upper() for k in ["CORRIERE", "AUTISTA", "RISORSA", "VETTORE"])), None)
@@ -682,7 +718,6 @@ if tipo_app == "📦 NPS Consegne":
 # 2. MODULO NPS RITIRI
 # ==========================================
 else:
-    # Logo e Intestazione
     c_title1, c_title2 = st.columns([3, 1])
     with c_title1:
         st.title("🚚 Analisi Feedback Ritiri")
