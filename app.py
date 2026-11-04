@@ -21,6 +21,11 @@ st.markdown("Elaborazione dati, calcolo metriche NPS, grafici e generazione repo
 
 uploaded_file = st.file_uploader("Trascina qui il file Excel", type=["xlsx", "xls"])
 
+def formatta_media(val):
+    if pd.isna(val) or val is None:
+        return "-"
+    return f"{float(val):.2f}".rstrip('0').rstrip('.')
+
 def clean_courier_code(val):
     if pd.isna(val):
         return None
@@ -42,27 +47,28 @@ def get_color_by_score(media):
 def genera_grafico_orizzontale(df_report, piu_votati):
     df_plot = df_report.sort_values(by="Voti", ascending=True).copy()
     num_corrieri = len(df_plot)
-    fig_height = max(5.0, num_corrieri * 0.42)
-    fig, ax = plt.subplots(figsize=(10, fig_height), dpi=200)
+    fig_height = max(4.5, num_corrieri * 0.38)
+    # dpi=100 per massima velocità di caricamento su mobile
+    fig, ax = plt.subplots(figsize=(9, fig_height), dpi=100)
     fig.patch.set_facecolor('#FFFFFF')
     ax.set_facecolor('#FFFFFF')
     
     y_pos = range(num_corrieri)
-    colori = [get_color_by_score(m) for m in df_plot['Media NPS']]
-    ax.barh(y_pos, df_plot['Voti'], color=colori, height=0.62, edgecolor='none', zorder=3)
+    colori = [get_color_by_score(m) for m in df_plot['Media_Num']]
+    ax.barh(y_pos, df_plot['Voti'], color=colori, height=0.60, edgecolor='none', zorder=3)
     ax.set_yticks(y_pos)
-    ax.set_yticklabels([f"Corriere {c}" for c in df_plot['Corriere']], fontsize=11, fontweight='bold', color='#1e293b')
+    ax.set_yticklabels([f"Corriere {c}" for c in df_plot['Corriere']], fontsize=10.5, fontweight='bold', color='#1e293b')
     
     max_val = df_plot['Voti'].max() if len(df_plot) > 0 else 10
     for y, c, v in zip(y_pos, df_plot['Corriere'], df_plot['Voti']):
         sing_plur = "voto" if v == 1 else "voti"
         if c in piu_votati:
-            ax.text(v + (max_val * 0.02), y, f"{v} {sing_plur}  ★ 1°", va='center', ha='left',
-                    fontsize=11, fontweight='bold', color='#b45309',
-                    bbox=dict(boxstyle="round,pad=0.25", facecolor="#fef3c7", edgecolor="#f59e0b", linewidth=1.2))
+            ax.text(v + (max_val * 0.02), y, f"{v} {sing_plur} ★ 1°", va='center', ha='left',
+                    fontsize=10.5, fontweight='bold', color='#b45309',
+                    bbox=dict(boxstyle="round,pad=0.2", facecolor="#fef3c7", edgecolor="#f59e0b", linewidth=1.0))
         else:
             ax.text(v + (max_val * 0.02), y, f"{v} {sing_plur}", va='center', ha='left',
-                    fontsize=10.5, fontweight='bold', color='#334155')
+                    fontsize=10, fontweight='bold', color='#334155')
 
     ax.set_xlim(0, max_val * 1.30)
     ax.spines['top'].set_visible(False)
@@ -70,8 +76,8 @@ def genera_grafico_orizzontale(df_report, piu_votati):
     ax.spines['left'].set_color('#cbd5e1')
     ax.spines['bottom'].set_color('#cbd5e1')
     ax.xaxis.grid(True, linestyle='--', alpha=0.5, color='#e2e8f0', zorder=0)
-    ax.tick_params(axis='x', colors='#64748b', labelsize=10)
-    ax.set_title("CLASSIFICA CORRIERI PER NUMERO DI VOTI", fontsize=13, fontweight='bold', color='#0f172a', pad=18)
+    ax.tick_params(axis='x', colors='#64748b', labelsize=9.5)
+    ax.set_title("CLASSIFICA CORRIERI PER NUMERO DI VOTI", fontsize=12, fontweight='bold', color='#0f172a', pad=15)
     
     p_green = mpatches.Patch(color='#22c55e', label='Fascia 9 - 10 (Verde)')
     p_yellow = mpatches.Patch(color='#eab308', label='Fascia 7 - 8 (Giallo)')
@@ -80,7 +86,7 @@ def genera_grafico_orizzontale(df_report, piu_votati):
     
     ax.legend(handles=[p_green, p_yellow, p_orange, p_red],
               loc='lower right', facecolor='#f8fafc', edgecolor='#e2e8f0',
-              fontsize=9, labelcolor='#334155', framealpha=0.95)
+              fontsize=8.5, labelcolor='#334155', framealpha=0.95)
               
     plt.tight_layout()
     img_buf = io.BytesIO()
@@ -89,7 +95,7 @@ def genera_grafico_orizzontale(df_report, piu_votati):
     plt.close(fig)
     return img_buf
 
-def crea_pdf_singolo_corriere(corriere_id, voti, media, p_list, n_list, d_list):
+def crea_pdf_singolo_corriere(corriere_id, voti, media_formatted, p_list, n_list, d_list):
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
     styles = getSampleStyleSheet()
@@ -102,11 +108,10 @@ def crea_pdf_singolo_corriere(corriere_id, voti, media, p_list, n_list, d_list):
     txt_style = ParagraphStyle('TX', parent=styles['Normal'], fontSize=10, leading=14, textColor=r_colors.HexColor('#1E293B'))
     empty_style = ParagraphStyle('EM', parent=styles['Italic'], fontSize=9.5, leading=13, textColor=r_colors.HexColor('#94A3B8'))
     
-    media_txt = f"{media}" if pd.notna(media) else "-"
     story = [
         Paragraph(f"<b>SCHEDA FEEDBACK &bull; CORRIERE {corriere_id}</b>", t_style),
         Spacer(1, 4),
-        Paragraph(f"<b>Totale Voti:</b> {voti} &nbsp;&nbsp;|&nbsp;&nbsp; <b>Media NPS:</b> {media_txt}", sub_style),
+        Paragraph(f"<b>Totale Voti:</b> {voti} &nbsp;&nbsp;|&nbsp;&nbsp; <b>Media NPS:</b> {media_formatted}", sub_style),
         Spacer(1, 10),
         HRFlowable(width="100%", thickness=1, color=r_colors.HexColor('#CBD5E1'), spaceAfter=14),
         
@@ -166,7 +171,7 @@ def crea_pdf_tutti_corrieri(df_report, verbatim_dict):
     for _, row in df_report.iterrows():
         c_id = row['Corriere']
         v_data = verbatim_dict.get(c_id, {"prom": [], "neut": [], "detr": []})
-        m_txt = f"Media NPS: {row['Media NPS']}" if pd.notna(row['Media NPS']) else "Media: -"
+        m_txt = f"Media NPS: {row['Media NPS']}"
         
         story.append(Paragraph(f"<b>CORRIERE {c_id}</b> — {row['Voti']} voti | {m_txt}", corr_head))
         story.append(Spacer(1, 4))
@@ -248,17 +253,18 @@ if uploaded_file is not None:
                 punteggi_validi = gruppo['Score_Num'].dropna()
                 
                 if len(punteggi_validi) > 0:
-                    media = round(punteggi_validi.mean(), 1)
+                    media_val = float(punteggi_validi.mean())
                     promotori = int((punteggi_validi >= 9).sum())
                     detrattori = int((punteggi_validi <= 6).sum())
                     neutrali = int(((punteggi_validi >= 7) & (punteggi_validi <= 8)).sum())
                 else:
-                    media, promotori, neutrali, detrattori = None, 0, 0, 0
+                    media_val, promotori, neutrali, detrattori = None, 0, 0, 0
                     
                 report_list.append({
                     "Corriere": corriere,
                     "Voti": voti_totali,
-                    "Media NPS": media,
+                    "Media_Num": media_val,
+                    "Media NPS": formatta_media(media_val),
                     "Promotori (9-10)": promotori,
                     "Neutrali (7-8)": neutrali,
                     "Detrattori (0-6)": detrattori
@@ -281,27 +287,26 @@ if uploaded_file is not None:
             tot_neut = df_report['Neutrali (7-8)'].sum()
             tot_detr = df_report['Detrattori (0-6)'].sum()
 
-            # --- RIEPILOGO METRICHE IN HTML/CSS (Zero errori script) ---
+            # --- RIEPILOGO METRICHE ---
             st.markdown("---")
             st.markdown("### 📊 Scheda Riepilogativa")
-            
             card_html = f"""
-            <div style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
-                <div style="flex: 1; min-width: 150px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 18px;">
-                    <div style="font-size: 13px; color: #64748b; font-weight: 600; text-transform: uppercase;">Totale Voti</div>
-                    <div style="font-size: 26px; font-weight: bold; color: #0f172a; margin-top: 4px;">{len(df_valido)}</div>
+            <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 140px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px;">
+                    <div style="font-size: 12px; color: #64748b; font-weight: 600;">TOTALE VOTI</div>
+                    <div style="font-size: 22px; font-weight: bold; color: #0f172a; margin-top: 2px;">{len(df_valido)}</div>
                 </div>
-                <div style="flex: 1; min-width: 150px; background: #fefce8; border: 1px solid #fef08a; border-radius: 8px; padding: 14px 18px;">
-                    <div style="font-size: 13px; color: #854d0e; font-weight: 600; text-transform: uppercase;">🏆 Più Votato</div>
-                    <div style="font-size: 22px; font-weight: bold; color: #713f12; margin-top: 4px;">Corr. {', '.join(piu_votati)} <span style="font-size: 14px; color: #a16207;">({max_voti} voti)</span></div>
+                <div style="flex: 1; min-width: 140px; background: #fefce8; border: 1px solid #fef08a; border-radius: 8px; padding: 12px 14px;">
+                    <div style="font-size: 12px; color: #854d0e; font-weight: 600;">🏆 PIÙ VOTATO</div>
+                    <div style="font-size: 18px; font-weight: bold; color: #713f12; margin-top: 2px;">Corr. {', '.join(piu_votati)} <span style="font-size: 13px; color: #a16207;">({max_voti})</span></div>
                 </div>
-                <div style="flex: 1; min-width: 150px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 14px 18px;">
-                    <div style="font-size: 13px; color: #166534; font-weight: 600; text-transform: uppercase;">Promotori (9-10)</div>
-                    <div style="font-size: 26px; font-weight: bold; color: #15803d; margin-top: 4px;">{tot_prom} 🟢</div>
+                <div style="flex: 1; min-width: 140px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px 14px;">
+                    <div style="font-size: 12px; color: #166534; font-weight: 600;">PROMOTORI (9-10)</div>
+                    <div style="font-size: 22px; font-weight: bold; color: #15803d; margin-top: 2px;">{tot_prom} 🟢</div>
                 </div>
-                <div style="flex: 1; min-width: 150px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 14px 18px;">
-                    <div style="font-size: 13px; color: #991b1b; font-weight: 600; text-transform: uppercase;">Detrattori (0-6)</div>
-                    <div style="font-size: 26px; font-weight: bold; color: #b91c1c; margin-top: 4px;">{tot_detr} 🔴</div>
+                <div style="flex: 1; min-width: 140px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 12px 14px;">
+                    <div style="font-size: 12px; color: #991b1b; font-weight: 600;">DETRATTORI (0-6)</div>
+                    <div style="font-size: 22px; font-weight: bold; color: #b91c1c; margin-top: 2px;">{tot_detr} 🔴</div>
                 </div>
             </div>
             """
@@ -311,13 +316,10 @@ if uploaded_file is not None:
             st.markdown("---")
             st.markdown("### 📈 Classifica Voti Corrieri")
             img_grafico_1 = genera_grafico_orizzontale(df_report, piu_votati)
-            cg1, cg2 = st.columns([2.5, 1])
-            with cg1: st.image(img_grafico_1.getvalue(), use_container_width=True)
-            with cg2:
-                st.download_button("💾 Scarica Grafico (PNG)", img_grafico_1.getvalue(), "classifica_voti.png", "image/png", use_container_width=True)
-                st.info("💡 Fai clic destro sul grafico per copiarlo e incollarlo su WhatsApp.")
+            st.image(img_grafico_1.getvalue(), use_container_width=True)
+            st.download_button("💾 Scarica Grafico (PNG)", img_grafico_1.getvalue(), "classifica_voti.png", "image/png", use_container_width=True)
 
-            # --- SEZIONE EXPORT PDF ---
+            # --- SEZIONE EXPORT PDF (ON-DEMAND) ---
             st.markdown("---")
             st.markdown("### 📄 Generazione File PDF")
             
@@ -326,26 +328,28 @@ if uploaded_file is not None:
             # Opzione 1: Singolo Corriere
             with col_pdf_single:
                 st.markdown("#### 👤 PDF Singolo Corriere")
-                corriere_scelto = st.selectbox("Seleziona il corriere da esportare in PDF:", df_report['Corriere'].tolist())
+                corriere_scelto = st.selectbox("Seleziona corriere:", df_report['Corriere'].tolist())
                 dati_c = verbatim_dict.get(corriere_scelto, {"prom": [], "neut": [], "detr": []})
                 r_c = df_report[df_report['Corriere'] == corriere_scelto].iloc[0]
                 
-                pdf_singolo = crea_pdf_singolo_corriere(
-                    corriere_scelto, r_c['Voti'], r_c['Media NPS'],
-                    dati_c['prom'], dati_c['neut'], dati_c['detr']
-                )
+                # Generazione PDF solo al clic
+                if st.button(f"⚙️ Prepara PDF Corriere {corriere_scelto}", key="btn_prep_single", use_container_width=True):
+                    with st.spinner("Generazione PDF in corso..."):
+                        pdf_singolo = crea_pdf_singolo_corriere(
+                            corriere_scelto, r_c['Voti'], r_c['Media NPS'],
+                            dati_c['prom'], dati_c['neut'], dati_c['detr']
+                        )
+                        st.download_button(
+                            label=f"📥 Clicca qui per scaricare il PDF",
+                            data=pdf_singolo.getvalue(),
+                            file_name=f"Report_Corriere_{corriere_scelto}.pdf",
+                            mime="application/pdf",
+                            use_container_width=True
+                        )
                 
-                st.download_button(
-                    label=f"📥 Scarica PDF Corriere {corriere_scelto}",
-                    data=pdf_singolo.getvalue(),
-                    file_name=f"Report_Corriere_{corriere_scelto}.pdf",
-                    mime="application/pdf",
-                    use_container_width=True
-                )
-                
-                # Testo WhatsApp rapido del singolo corriere
+                # Testo WhatsApp rapido
                 testo_c = f"*📦 RECENSIONI CORRIERE {corriere_scelto}*\n"
-                testo_c += f"• *Totale Voti:* {r_c['Voti']} | *Media:* {r_c['Media NPS'] if pd.notna(r_c['Media NPS']) else '-'}\n\n"
+                testo_c += f"• *Totale Voti:* {r_c['Voti']} | *Media:* {r_c['Media NPS']}\n\n"
                 if dati_c['prom']: testo_c += "🟢 *Promotori:*\n" + "\n".join([f"• “{t}”" for t in dati_c['prom']]) + "\n\n"
                 if dati_c['neut']: testo_c += "🟡 *Neutrali:*\n" + "\n".join([f"• “{t}”" for t in dati_c['neut']]) + "\n\n"
                 if dati_c['detr']: testo_c += "🔴 *Detrattori:*\n" + "\n".join([f"• “{t}”" for t in dati_c['detr']]) + "\n\n"
@@ -357,34 +361,37 @@ if uploaded_file is not None:
                         display: block;
                         background-color: #25D366;
                         color: white;
-                        padding: 10px 14px;
+                        padding: 9px 12px;
                         text-align: center;
                         text-decoration: none;
-                        font-size: 14px;
+                        font-size: 13.5px;
                         font-weight: bold;
                         border-radius: 6px;
-                        margin-top: 10px;
+                        margin-top: 8px;
                     ">💬 Invia Testo Corriere {corriere_scelto} su WhatsApp</a>
                 ''', unsafe_allow_html=True)
                 
             # Opzione 2: Tutti i Corrieri
             with col_pdf_all:
                 st.markdown("#### 📚 PDF Completo (Tutti i Corrieri)")
-                st.caption("Crea un documento PDF con tutte le schede e tutte le recensioni di ogni singolo corriere.")
+                st.caption("Fascicolo completo con tutte le schede e recensioni.")
                 
-                pdf_tutti = crea_pdf_tutti_corrieri(df_report, verbatim_dict)
-                st.download_button(
-                    label="📥 Scarica PDF Completo con Tutti i Corrieri",
-                    data=pdf_tutti.getvalue(),
-                    file_name="Report_Generale_Recensioni_Corrieri.pdf",
-                    mime="application/pdf",
-                    use_container_width=True
-                )
+                if st.button("⚙️ Prepara PDF Completo di Tutti i Corrieri", key="btn_prep_all", use_container_width=True):
+                    with st.spinner("Compilazione fascicolo completo in corso..."):
+                        pdf_tutti = crea_pdf_tutti_corrieri(df_report, verbatim_dict)
+                        st.download_button(
+                            label="📥 Clicca qui per scaricare il Fascicolo Completo",
+                            data=pdf_tutti.getvalue(),
+                            file_name="Report_Generale_Recensioni_Corrieri.pdf",
+                            mime="application/pdf",
+                            use_container_width=True
+                        )
 
-            # --- TABELLA STATICA PULITA (Zero errori script) ---
+            # --- TABELLA STATICA PULITA ---
             st.markdown("---")
             st.markdown("#### 📋 Tabella Riepilogo Corrieri")
-            st.table(df_report)
+            df_tabella = df_report.drop(columns=['Media_Num'])
+            st.table(df_tabella)
 
     except Exception as e:
         st.error(f"Errore: {e}")
